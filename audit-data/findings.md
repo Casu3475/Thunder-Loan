@@ -16,7 +16,7 @@ However, the expected upgraded contract ThunderLoanUpgraded.sol has them in a di
 
 Due to how Solidity storage works, after the upgrade, the s_flashLoanFee will have the value of s_feePrecision. You cannot adjust the positions of storage variables when working with upgradeable contracts.
 
-**Impact:** After upgrade, the s_flashLoanFee will have the value of s_feePrecision. This means that users who take out flash loans right after an upgrade will be charged the wrong fee. Additionally the s_currentlyFlashLoaning mapping will start on the wrong storage slot.
+**Impact:** Impact: After upgrade, the s_flashLoanFee will have the value of s_feePrecision. This means that users who take out flash loans right after an upgrade will be charged the wrong fee. Additionally the s_currentlyFlashLoaning mapping will start on the wrong storage slot.
 
 **Proof of Concept:** Add the following code to the `ThunderLoanTest.t.sol` file.
 
@@ -70,13 +70,31 @@ You can also see the storage layout difference by running `forge inspect Thunder
 
 **Recommended Mitigation:**
 
-### [M-1] Centralization risk for trusted owners
+### [H-3] By calling a flashloan and then ThunderLoan::deposit instead of ThunderLoan::repay users can steal all funds from the protocol
 
 **Description:**
 
 **Impact:**
 
-Contracts have owners with privileged rights to perform admin tasks and need to be trusted to not perform malicious updates or drain funds.
+**Proof of Concept:**
+
+**Recommended Mitigation:**
+
+### [H-4] getPriceOfOnePoolTokenInWeth uses the TSwap price which doesn't account for decimals, also fee precision is 18 decimals
+
+**Description:**
+
+**Impact:**
+
+**Proof of Concept:**
+
+**Recommended Mitigation:**
+
+### [M-1] Centralization risk for trusted owners
+
+**Description:**
+
+**Impact:** Contracts have owners with privileged rights to perform admin tasks and need to be trusted to not perform malicious updates or drain funds.
 
 Instances (2):
 
@@ -98,14 +116,12 @@ File: src/protocol/ThunderLoan.sol
 
 **Impact:** Liquidity providers will drastically reduced fees for providing liquidity.
 
-**Proof of Concept:**
-
-The following all happens in 1 transaction.
+**Proof of Concept:** The following all happens in 1 transaction.
 
 1. User takes a flash loan from ThunderLoan for 1000 tokenA. They are charged the original fee fee1. During the flash loan, they do the following:
-   i. User sells 1000 tokenA, tanking the price.
-   ii. Instead of repaying right away, the user takes out another flash loan for another 1000 tokenA.
-   a.Due to the fact that the way ThunderLoan calculates price based on the TSwapPool this second flash loan is substantially cheaper.
+   User sells 1000 tokenA, tanking the price.
+2. Instead of repaying right away, the user takes out another flash loan for another 1000 tokenA.
+   Due to the fact that the way ThunderLoan calculates price based on the TSwapPool this second flash loan is substantially cheaper.
 
 ```javascript
     function getPriceInWeth(address token) public view returns (uint256) {
@@ -114,122 +130,8 @@ The following all happens in 1 transaction.
     }
 ```
 
-3. The user then repays the first flash loan, and then repays the second flash loan.
-   I have created a proof of code located in my audit-data folder. It is too large to include here.
+1. The user then repays the first flash loan, and then repays the second flash loan.
+
+I have created a proof of code located in my audit-data folder. It is too large to include here.
 
 **Recommended Mitigation:** Consider using a different price oracle mechanism, like a Chainlink price feed with a Uniswap TWAP fallback oracle.
-
-### [L-1] Empty Function Body - Consider commenting why
-
-Instances (1):
-
-```javascript
-File: src/protocol/ThunderLoan.sol
-
-261:     function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
-```
-
-### [L-2] Initializers could be front-run
-
-```javascript
-Initializers could be front-run, allowing an attacker to either set their own values, take ownership of the contract, and in the best case forcing a re-deployment
-
-Instances (6):
-
-File: src/protocol/OracleUpgradeable.sol
-
-11:     function __Oracle_init(address poolFactoryAddress) internal onlyInitializing {
-```
-
-```javascript
-File: src/protocol/ThunderLoan.sol
-
-138:     function initialize(address tswapAddress) external initializer {
-
-138:     function initialize(address tswapAddress) external initializer {
-
-139:         __Ownable_init();
-
-140:         __UUPSUpgradeable_init();
-
-141:         __Oracle_init(tswapAddress);
-```
-
-### [L-3] Missing critial event emissions
-
-**Description:** When the ThunderLoan::s_flashLoanFee is updated, there is no event emitted.
-
-**Impact:**
-
-**Proof of Concept:**
-
-**Recommended Mitigation:** Emit an event when the ThunderLoan::s_flashLoanFee is updated.
-
-```diff
-+    event FlashLoanFeeUpdated(uint256 newFee);
-.
-.
-.
-    function updateFlashLoanFee(uint256 newFee) external onlyOwner {
-        if (newFee > s_feePrecision) {
-            revert ThunderLoan__BadNewFee();
-        }
-        s_flashLoanFee = newFee;
-+       emit FlashLoanFeeUpdated(newFee);
-    }
-```
-
-### [I-1] Poor Test Coverage
-
-Running tests...
-| File | % Lines | % Statements | % Branches | % Funcs |
-| ---------------------------------- | -------------- | -------------- | ------------- | -------------- |
-| src/protocol/AssetToken.sol | 70.00% (7/10) | 76.92% (10/13) | 50.00% (1/2) | 66.67% (4/6) |
-| src/protocol/OracleUpgradeable.sol | 100.00% (6/6) | 100.00% (9/9) | 100.00% (0/0) | 80.00% (4/5) |
-| src/protocol/ThunderLoan.sol | 64.52% (40/62) | 68.35% (54/79) | 37.50% (6/16) | 71.43% (10/14) |
-
-Aim to get test coverage up to over 90% for all files.
-
-### [GAS-1] Using bools for storage incurs overhead
-
-Use uint256(1) and uint256(2) for true/false to avoid a Gwarmaccess (100 gas), and to avoid Gsset (20000 gas) when changing from ‘false’ to ‘true’, after having been ‘true’ in the past. See source.
-
-Instances (1):
-
-```JAVASCRIPT
-File: src/protocol/ThunderLoan.sol
-
-98:     mapping(IERC20 token => bool currentlyFlashLoaning) private s_currentlyFlashLoaning;
-```
-
-### [GAS-2] Using private rather than public for constants, saves gas
-
-If needed, the values can be read from the verified contract source code, or if there are multiple values there can be a single getter function that returns a tuple of the values of all currently-public constants. Saves 3406-3606 gas in deployment gas due to the compiler not having to create non-payable getter functions for deployment calldata, not having to store the bytes of the value outside of where it's used, and not adding another entry to the method ID table
-
-Instances (3):
-
-```JAVASCRIPT
-File: src/protocol/AssetToken.sol
-
-25:     uint256 public constant EXCHANGE_RATE_PRECISION = 1e18;
-```
-
-```JAVASCRIPT
-File: src/protocol/ThunderLoan.sol
-
-95:     uint256 public constant FLASH_LOAN_FEE = 3e15; // 0.3% ETH fee
-
-96:     uint256 public constant FEE_PRECISION = 1e18;
-```
-
-### [GAS-3] Unnecessary SLOAD when logging new exchange rate
-
-In AssetToken::updateExchangeRate, after writing the newExchangeRate to storage, the function reads the value from storage again to log it in the ExchangeRateUpdated event.
-
-To avoid the unnecessary SLOAD, you can log the value of newExchangeRate.
-
-```diff
-  s_exchangeRate = newExchangeRate;
-- emit ExchangeRateUpdated(s_exchangeRate);
-+ emit ExchangeRateUpdated(newExchangeRate);
-```

@@ -135,3 +135,4 @@ File: src/protocol/ThunderLoan.sol
 I have created a proof of code located in my audit-data folder. It is too large to include here.
 
 **Recommended Mitigation:** Consider using a different price oracle mechanism, like a Chainlink price feed with a Uniswap TWAP fallback oracle.
+

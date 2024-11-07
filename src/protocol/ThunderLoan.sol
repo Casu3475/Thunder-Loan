@@ -266,6 +266,9 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
     }
 
     function getCalculatedFee(IERC20 token, uint256 amount) public view returns (uint256 fee) {
+        // e so this is why we need tswap, we need to get the price of the token in WETH
+        // @audit -high if the fee is going to be in the token, then the value should reflect that
+
         //slither-disable-next-line divide-before-multiply
         uint256 valueOfBorrowedToken = (amount * getPriceInWeth(address(token))) / s_feePrecision;
         //slither-disable-next-line divide-before-multiply

@@ -47,7 +47,7 @@ You can also see the storage layout difference by running `forge inspect Thunder
 +    uint256 public constant FEE_PRECISION = 1e18;
 ```
 
-### [H-2] Unnecessary updateExchangeRate in deposit function incorrectly updates exchangeRate preventing withdraws and unfairly changing reward distribution
+### [H-2] Unnecessary `updateExchangeRate` in `deposit` function incorrectly updates `exchangeRate` preventing withdraws and unfairly changing reward distribution
 
 **Description:**
 

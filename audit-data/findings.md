@@ -1,4 +1,4 @@
-### [H-1] Mixing up variable location causes storage collisions in ThunderLoan::s_flashLoanFee and ThunderLoan::s_currentlyFlashLoaning
+### [H-1] Mixing up variable location causes storage collisions in `ThunderLoan::s_flashLoanFee` and `ThunderLoan::s_currentlyFlashLoaning`
 
 **Description:** ThunderLoan.sol has two variables in the following order:
 
@@ -37,7 +37,7 @@ function testUpgradeBreaks() public {
 
 You can also see the storage layout difference by running `forge inspect ThunderLoan storage` and `forge inspect ThunderLoanUpgraded storage`
 
-**Recommended Mitigation:** Do not switch the positions of the storage variables on upgrade, and leave a blank if you're going to replace a storage variable with a constant. In ThunderLoanUpgraded.sol:
+**Recommended Mitigation:** Do not switch the positions of the storage variables on upgrade, and leave a blank if you're going to replace a storage variable with a constant. In `ThunderLoanUpgraded.sol`:
 
 ```diff
 -    uint256 private s_flashLoanFee; // 0.3% ETH fee
@@ -70,7 +70,7 @@ You can also see the storage layout difference by running `forge inspect Thunder
 
 **Recommended Mitigation:**
 
-### [H-3] By calling a flashloan and then ThunderLoan::deposit instead of ThunderLoan::repay users can steal all funds from the protocol
+### [H-3] By calling a flashloan and then `ThunderLoan::deposit` instead of `ThunderLoan::repay` users can steal all funds from the protocol
 
 **Description:**
 
@@ -80,7 +80,7 @@ You can also see the storage layout difference by running `forge inspect Thunder
 
 **Recommended Mitigation:**
 
-### [H-4] getPriceOfOnePoolTokenInWeth uses the TSwap price which doesn't account for decimals, also fee precision is 18 decimals
+### [H-4] `getPriceOfOnePoolTokenInWeth` uses the TSwap price which doesn't account for decimals, also fee precision is 18 decimals
 
 **Description:**
 
@@ -136,3 +136,73 @@ I have created a proof of code located in my audit-data folder. It is too large 
 
 **Recommended Mitigation:** Consider using a different price oracle mechanism, like a Chainlink price feed with a Uniswap TWAP fallback oracle.
 
+### [L-1] Empty Function Body - Consider commenting why
+
+**Description:** Instances (1):
+
+```JAVASCRIPT
+File: src/protocol/ThunderLoan.sol
+
+261:     function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
+```
+
+**Impact:**
+
+**Proof of Concept:**
+
+**Recommended Mitigation:**
+
+### [L-2] Initializers could be front-run
+
+**Description:** Initializers could be front-run, allowing an attacker to either set their own values, take ownership of the contract, and in the best case forcing a re-deployment
+Instances (6):
+
+```javascript
+File: src/protocol/OracleUpgradeable.sol
+
+11:     function __Oracle_init(address poolFactoryAddress) internal onlyInitializing {
+```
+
+```javascript
+File: src/protocol/ThunderLoan.sol
+
+138:     function initialize(address tswapAddress) external initializer {
+
+138:     function initialize(address tswapAddress) external initializer {
+
+139:         __Ownable_init();
+
+140:         __UUPSUpgradeable_init();
+
+141:         __Oracle_init(tswapAddress);
+```
+
+**Impact:**
+
+**Proof of Concept:**
+
+**Recommended Mitigation:**
+
+### [L-3] ] Missing critial event emissions
+
+**Description:** When the ThunderLoan::s_flashLoanFee is updated, there is no event emitted.
+
+**Impact:**
+
+**Proof of Concept:**
+
+**Recommended Mitigation:** Emit an event when the ThunderLoan::s_flashLoanFee is updated.
+
+```diff
++    event FlashLoanFeeUpdated(uint256 newFee);
+.
+.
+.
+    function updateFlashLoanFee(uint256 newFee) external onlyOwner {
+        if (newFee > s_feePrecision) {
+            revert ThunderLoan__BadNewFee();
+        }
+        s_flashLoanFee = newFee;
++       emit FlashLoanFeeUpdated(newFee);
+    }
+```

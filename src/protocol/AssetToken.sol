@@ -21,6 +21,9 @@ contract AssetToken is ERC20 {
     // The underlying per asset exchange rate
     // ie: s_exchangeRate = 2
     // means 1 asset token is worth 2 underlying tokens
+    // e underlying == USDC
+    // e assetToken == shares
+    // % shares
     uint256 private s_exchangeRate;
     uint256 public constant EXCHANGE_RATE_PRECISION = 1e18;
     uint256 private constant STARTING_EXCHANGE_RATE = 1e18;
@@ -52,7 +55,9 @@ contract AssetToken is ERC20 {
     //////////////////////////////////////////////////////////////*/
     constructor(
         address thunderLoan,
-        IERC20 underlying,
+        IERC20 underlying,    // e the token being deposited for flash loans
+        // oh, are the ERC20s stored in AssetToken.sol instead of ThunderLoan.sol?
+        // q where are the tokens stored ?
         string memory assetName,
         string memory assetSymbol
     )
@@ -65,7 +70,12 @@ contract AssetToken is ERC20 {
         s_exchangeRate = STARTING_EXCHANGE_RATE;
     }
 
+    // e ok, only the thunderloan contract can mint asset tokens
     function mint(address to, uint256 amount) external onlyThunderLoan {
+        // weird ERC20???
+        // what happens if USDC blacklists the thunderloan contract ?
+        // what happens if USDC blacklists the asset token contract ?
+
         _mint(to, amount);
     }
 
